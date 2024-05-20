@@ -1,0 +1,16 @@
+[package]
+name = "bls-aggregation-service"
+description = "Example demonstrating the bls aggregation crate"
+
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+license-file.workspace = true
+
+[dependencies]
+eigen-client-avsregistry.workspace = true
+eigen-services-blsaggregation.workspace = true
+alloy-primitives.workspace = true
+tokio = {workspace = true, features =["full"]}
+tracing.workspace = true

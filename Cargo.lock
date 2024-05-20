@@ -832,6 +832,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "bls-aggregation-service"
+version = "0.0.1-alpha"
+dependencies = [
+ "alloy-primitives",
+ "eigen-client-avsregistry",
+ "eigen-services-blsaggregation",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "blst"
 version = "0.3.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
