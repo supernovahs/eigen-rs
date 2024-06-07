@@ -9,7 +9,7 @@ use num_bigint::BigInt;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use tracing::debug;
-
+use alloy_network::EthereumSigner;
 
 const REGISTRY_COORDINATOR_PATH: &str =
     "../../../../crates/contracts/bindings/utils/json/RegistryCoordinator.json";
@@ -655,6 +655,7 @@ use alloy_signer_wallet::LocalWallet;
 
             let provider = ProviderBuilder::new()
             .with_recommended_fillers()
+            .signer(EthereumSigner::from(signer.clone()))
             .on_builtin(&holesky_provider)
             .await.unwrap();
 
@@ -664,7 +665,10 @@ use alloy_signer_wallet::LocalWallet;
             stakerOptOutWindowBlocks: 0u32
         };
             let contract_delegation_manager = DelegationManager::new(delegation_address,provider);
-            let tr = contract_delegation_manager.registerAsOperator(op_details, "ddd".to_string()).send().await;
+            let tr = contract_delegation_manager.registerAsOperator(op_details, "ddd".to_string());
+            let binding = tr.gas(200000);
+            let call  =binding.send().await.unwrap();
+            println!("tx:{:?}",call.tx_hash());
             let is = contract_delegation_manager.isOperator(signer.address()).call().await;
 
             let DelegationManager::isOperatorReturn{_0: isop} = is.unwrap();
