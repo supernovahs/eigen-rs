@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use tracing::debug;
 
+
 const REGISTRY_COORDINATOR_PATH: &str =
     "../../../../crates/contracts/bindings/utils/json/RegistryCoordinator.json";
 const STAKE_REGISTRY_PATH: &str =
@@ -527,15 +528,18 @@ impl AvsRegistryChainReader {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
     use alloy_primitives::keccak256;
     use hex::FromHex;
-    use std::str::FromStr;
+    use std::{ops::Add, str::FromStr};
     const HOLESKY_REGISTRY_COORDINATOR: &str = "0x53012C69A189cfA2D9d29eb6F19B32e0A2EA3490";
     const HOLESKY_OPERATOR_STATE_RETRIEVER: &str = "0xB4baAfee917fb4449f5ec64804217bccE9f46C67";
     const HOLESKY_STAKE_REGISTRY: &str = "0xBDACD5998989Eec814ac7A0f0f6596088AA2a270";
     const HOLESKY_BLS_APK_REGISTRY: &str = "0x066cF95c1bf0927124DFB8B02B401bc23A79730D";
+    use eigen_types::operator::Operator;
+    use DelegationManager::OperatorDetails;
+use eigen_client_elcontracts::{reader::{ ELChainReader}, writer::{DelegationManager, ELChainWriter}};
+use alloy_signer_wallet::LocalWallet;
 
     #[tokio::test]
     async fn test_build_avs_registry_chain_reader() {
@@ -578,6 +582,8 @@ mod tests {
 
         return avs_registry_chain_reader;
     }
+
+
 
     #[tokio::test]
     async fn test_get_quorum_count() {
@@ -637,4 +643,37 @@ mod tests {
             .await
             .unwrap();
     }
+
+        const DELEGATION_MANAGER :&str = "0xA44151489861Fe9e3055d95adC98FbD462B948e7";         
+        const AVS_DIRECTORY:&str = "0x055733000064333CaDDbC92763c58BF0192fFeBf";
+        #[tokio::test]
+        async fn test_register_operator() {
+            let delegation_address = Address::from_str(DELEGATION_MANAGER).unwrap();
+            let holesky_provider = "https://ethereum-holesky.blockpi.network/v1/rpc/public";
+            let signer = LocalWallet::from_str("0x70cf3589410a4471117581a3ed6aed567d180ad96b51d97bf2744a9c74fe55d0").unwrap();
+            let el_chain_reader = ELChainReader::new(Address::ZERO,Address::from_str(DELEGATION_MANAGER).unwrap(),Address::ZERO,Address::from_str(AVS_DIRECTORY).unwrap(),holesky_provider.to_string());
+
+            let provider = ProviderBuilder::new()
+            .with_recommended_fillers()
+            .on_builtin(&holesky_provider)
+            .await.unwrap();
+
+        let op_details = OperatorDetails{
+            earningsReceiver: signer.address(),
+            delegationApprover: Address::ZERO,
+            stakerOptOutWindowBlocks: 0u32
+        };
+            let contract_delegation_manager = DelegationManager::new(delegation_address,provider);
+            let tr = contract_delegation_manager.registerAsOperator(op_details, "ddd".to_string()).send().await;
+            let is = contract_delegation_manager.isOperator(signer.address()).call().await;
+
+            let DelegationManager::isOperatorReturn{_0: isop} = is.unwrap();
+            println!("is opera:{:?}",isop);
+            assert!(isop);
+    
+        }
+    
+    
+
+
 }
