@@ -5,6 +5,8 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 
+/// Amount Info
+#[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug)]
 struct AmountInfo {
     amount: String,
@@ -16,6 +18,8 @@ struct AmountInfo {
     amount_usdc: String,
 }
 
+/// Fee Info
+#[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug)]
 struct FeeInfo {
     #[serde(rename = "networkFee")]
@@ -26,12 +30,15 @@ struct FeeInfo {
     gas_price: String,
 }
 
+/// Extra Parameters
+#[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug)]
 struct ExtraParameters {
     #[serde(rename = "contractCallData")]
     contract_calldata: String,
 }
 
+#[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug)]
 struct BlockInfo {
     #[serde(rename = "blockHeight")]
@@ -40,6 +47,7 @@ struct BlockInfo {
     block_hash: String,
 }
 
+#[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug)]
 struct Transaction {
     id: String,

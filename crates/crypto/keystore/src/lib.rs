@@ -10,6 +10,7 @@ use aes::{
 };
 use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::{fields::PrimeField, Field};
+use eigen_crypto_bls::{BlsKeypair, PrivateKey, PublicKey};
 use eth_keystore::{CryptoJson, KdfparamsType};
 use ethers::{signers::LocalWallet, types::H256, utils::keccak256};
 use eyre::{eyre, Ok, Report};
@@ -17,8 +18,6 @@ use rand::{thread_rng, RngCore};
 use scrypt::{scrypt, Params as ScryptParams};
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, fs::File, io::Read, path::Path};
-
-use eigen_crypto_bls::{BlsKeypair, PrivateKey, PublicKey};
 
 #[derive(Default)]
 pub struct EncodedKeystore {

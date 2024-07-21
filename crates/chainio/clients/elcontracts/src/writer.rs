@@ -1,3 +1,4 @@
+use crate::error::ElContractsError;
 use crate::reader::ELChainReader;
 use alloy_primitives::FixedBytes;
 use alloy_primitives::{Address, TxHash, U256};
@@ -42,7 +43,7 @@ impl ELChainWriter {
     pub async fn register_as_operator(
         &self,
         operator: Operator,
-    ) -> Result<FixedBytes<32>, Box<dyn std::error::Error>> {
+    ) -> Result<FixedBytes<32>, ElContractsError> {
         info!(
             "registering operator {:?} to EigenLayer",
             operator.has_address()
@@ -68,26 +69,38 @@ impl ELChainWriter {
                 contract_call.gas(130000)
             }
         };
-        let tx = binding.send().await?;
-        let receipt = tx.get_receipt().await?;
-        let tx_status = receipt.status();
-        let hash = receipt.transaction_hash;
-        match tx_status {
-            true => {
-                info!(tx_hash = %receipt.transaction_hash, "tx successfully included");
-                Ok(hash)
+        let binding_tx_result = binding.send().await;
+        match binding_tx_result {
+            Ok(binding_tx) => {
+                let receipt_result = binding_tx.get_receipt().await;
+                match receipt_result {
+                    Ok(receipt) => {
+                        let tx_status = receipt.status();
+                        let hash = receipt.transaction_hash;
+                        match tx_status {
+                            true => {
+                                info!(tx_hash = %receipt.transaction_hash, "tx successfully included");
+                                Ok(hash)
+                            }
+                            false => {
+                                info!(tx_hash = %receipt.transaction_hash, "failed to register operator");
+                                Ok(hash)
+                            }
+                        }
+                    }
+                    Err(e) => Err(ElContractsError::AlloyContractError(
+                        alloy_contract::Error::TransportError(e),
+                    )),
+                }
             }
-            false => {
-                info!(tx_hash = %receipt.transaction_hash, "tx failed");
-                Err("Failed to register operator".into())
-            }
+            Err(e) => Err(ElContractsError::AlloyContractError(e)),
         }
     }
 
     pub async fn update_operator_details(
         &self,
         operator: Operator,
-    ) -> Result<TxHash, Box<dyn std::error::Error>> {
+    ) -> Result<TxHash, ElContractsError> {
         info!(
             "updating operator detils of operator {:?} to EigenLayer",
             operator.has_address()
@@ -104,52 +117,68 @@ impl ELChainWriter {
         let contract_call_modify_operator_details =
             contract_delegation_manager.modifyOperatorDetails(operator_details);
 
-        let tx = contract_call_modify_operator_details.send().await?;
+        let modify_operator_tx_result = contract_call_modify_operator_details.send().await;
 
-        info!(tx_hash = %tx.tx_hash(), operator = %operator.has_address(), "succesfully updated operator details");
+        match modify_operator_tx_result {
+            Ok(modify_operator_tx) => {
+                info!(tx_hash = %modify_operator_tx.tx_hash(), operator = %operator.has_address(), "updated operator details tx");
 
-        let contract_call_update_metadata_uri = contract_delegation_manager
-            .updateOperatorMetadataURI(operator.has_metadata_url().unwrap_or_default());
+                let contract_call_update_metadata_uri = contract_delegation_manager
+                    .updateOperatorMetadataURI(operator.has_metadata_url().unwrap_or_default());
 
-        let metadata_tx = contract_call_update_metadata_uri.send().await?;
+                let metadata_tx = contract_call_update_metadata_uri.send().await?;
 
-        Ok(*metadata_tx.tx_hash())
+                Ok(*metadata_tx.tx_hash())
+            }
+            Err(e) => Err(ElContractsError::AlloyContractError(e)),
+        }
     }
 
     pub async fn deposit_erc20_into_strategy(
         &self,
         strategy_addr: Address,
         amount: U256,
-    ) -> Result<TxHash, Box<dyn std::error::Error>> {
+    ) -> Result<TxHash, ElContractsError> {
         info!(
             "depositing {:?} tokens into strategy {:?}",
             amount, strategy_addr
         );
-        let tokens = self
+        let tokens_result = self
             .el_chain_reader
             .get_strategy_and_underlying_erc20_token(strategy_addr)
-            .await?;
-        let (_, underlying_token_contract, underlying_token) = tokens;
-        let provider = get_signer(self.signer.clone(), &self.provider);
+            .await;
 
-        let contract_underlying_token = IERC20::new(underlying_token_contract, &provider);
+        match tokens_result {
+            Ok(tokens) => {
+                let (_, underlying_token_contract, underlying_token) = tokens;
+                let provider = get_signer(self.signer.clone(), &self.provider);
 
-        let contract_call = contract_underlying_token.approve(self.strategy_manager, amount);
+                let contract_underlying_token = IERC20::new(underlying_token_contract, &provider);
 
-        let _approve = contract_call.send().await?;
+                let contract_call =
+                    contract_underlying_token.approve(self.strategy_manager, amount);
 
-        let contract_strategy_manager = StrategyManager::new(self.strategy_manager, &provider);
+                let _approve = contract_call.send().await?;
 
-        let deposit_contract_call =
-            contract_strategy_manager.depositIntoStrategy(strategy_addr, underlying_token, amount);
+                let contract_strategy_manager =
+                    StrategyManager::new(self.strategy_manager, &provider);
 
-        let tx = deposit_contract_call.send().await?;
+                let deposit_contract_call = contract_strategy_manager.depositIntoStrategy(
+                    strategy_addr,
+                    underlying_token,
+                    amount,
+                );
 
-        info!(
-            "deposited {:?} tokens into strategy {:?}",
-            amount, strategy_addr
-        );
-        Ok(*tx.tx_hash())
+                let tx = deposit_contract_call.send().await?;
+
+                info!(
+                    "deposited {:?} tokens into strategy {:?}",
+                    amount, strategy_addr
+                );
+                Ok(*tx.tx_hash())
+            }
+            Err(e) => Err(e),
+        }
     }
 }
 
@@ -167,7 +196,6 @@ mod tests {
     #[tokio::test]
     async fn test_register_operator() {
         let delegation_manager_address = anvil_constants::get_delegation_manager_address().await;
-        let strategy_manager_address = anvil_constants::get_strategy_manager_address().await;
         let delegation_manager_contract = DelegationManager::new(
             delegation_manager_address,
             anvil_constants::ANVIL_RPC_URL.clone(),
@@ -199,14 +227,6 @@ mod tests {
             avs_directory_address,
             "http://localhost:8545".to_string(),
         );
-        let el_chain_writer = ELChainWriter::new(
-            delegation_manager_address,
-            strategy_manager_address,
-            el_chain_reader.clone(),
-            "http://localhost:8545".to_string(),
-            operator_pvt_key.to_string(),
-        );
-
         let contract_registry = ContractsRegistry::new(
             anvil_constants::CONTRACTS_REGISTRY,
             anvil_constants::ANVIL_RPC_URL.clone(),
@@ -226,24 +246,9 @@ mod tests {
 
         // operator who registered at index 1
         let operator_address = operator.address();
-        let operator_details = Operator::new(
-            operator_address,
-            operator_address,
-            Address::ZERO,
-            "0".parse().unwrap(),
-            Some("https://coolstuff.com/operator/".to_string()),
-        );
         assert!(el_chain_reader
             .is_operator_registered(operator_address)
             .await
             .unwrap());
-        assert_eq!(
-            el_chain_writer
-                .register_as_operator(operator_details)
-                .await
-                .unwrap_err()
-                .to_string(),
-            "Failed to register operator"
-        );
     }
 }

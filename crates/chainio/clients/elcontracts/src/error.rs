@@ -1,3 +1,4 @@
+use alloy_contract::Error as AlloyError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -65,4 +66,7 @@ pub enum ElContractsError {
     /// update metadata uri
     #[error("Failed to update metadata uri")]
     UpdateMetadataUri,
+
+    #[error("Alloy contract error: {0}")]
+    AlloyContractError(#[from] AlloyError),
 }

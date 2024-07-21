@@ -12,7 +12,7 @@ license-file.workspace = true
 eigen-types.workspace=true
 thiserror.workspace = true
 tracing.workspace = true
-
+alloy-contract.workspace = true
 eigen-utils.workspace = true
 alloy-primitives.workspace = true
 
