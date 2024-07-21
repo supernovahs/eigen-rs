@@ -1,22 +1,20 @@
 use alloy_signer::SignerSync;
 use alloy_signer_local::PrivateKeySigner;
-use ark_bn254::G1Projective;
-use eigen_chainio_utils::{
-    convert_bn254_to_ark, convert_to_bn254_g1_point, convert_to_bn254_g2_point,
-};
+use ark_bn254::{Fq, G1Affine};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use eigen_chainio_utils::{convert_to_bn254_g1_point, convert_to_bn254_g2_point};
 use eigen_client_elcontracts::reader::ELChainReader;
-use std::str::FromStr;
-
 use eigen_utils::binding::{
-    BLSApkRegistry::{G1Point, PubkeyRegistrationParams},
+    BLSApkRegistry::{G1Point, G2Point,PubkeyRegistrationParams},
     RegistryCoordinator::{
         self, G1Point as RegistryG1Point, G2Point as RegistryG2Point,
         PubkeyRegistrationParams as RegistryPubkeyRegistrationParams,
-    },
+    }
 };
+use std::str::FromStr;
 
 use alloy_primitives::{Address, Bytes, FixedBytes, TxHash, U256};
-use eigen_crypto_bls::attestation::KeyPair;
+use eigen_crypto_bls::{BlsKeypair, EthConvert};
 use tracing::info;
 use RegistryCoordinator::SignatureWithSaltAndExpiry;
 
@@ -99,7 +97,7 @@ impl AvsRegistryChainWriter {
     /// Register operator in quorum with avs registry coordinator
     pub async fn register_operator_in_quorum_with_avs_registry_coordinator(
         &self,
-        bls_key_pair: KeyPair,
+        bls_key_pair: BlsKeypair,
         operator_to_avs_registration_sig_salt: FixedBytes<32>,
         operator_to_avs_registration_sig_expiry: U256,
         quorum_numbers: Bytes,
@@ -119,29 +117,30 @@ impl AvsRegistryChainWriter {
         let RegistryCoordinator::pubkeyRegistrationMessageHashReturn {
             _0: g1_hashes_msg_to_sign,
         } = g1_hashes_msg_to_sign_return;
-        let signed_msg = convert_to_bn254_g1_point(
-            bls_key_pair
-                .sign_hashes_to_curve_message(G1Projective::from(
-                    convert_bn254_to_ark(G1Point {
-                        X: g1_hashes_msg_to_sign.X,
-                        Y: g1_hashes_msg_to_sign.Y,
-                    })
-                    .point,
-                ))
-                .sig(),
+      
+        let mut serialized_bytes = vec![];
+
+        println!("g1 hashes msg to sign : {}", g1_hashes_msg_to_sign.X);
+        println!("g1 hashes msg to sign : {}", g1_hashes_msg_to_sign.Y);
+
+        let g1_affine = G1Affine::new(
+            Fq::from_str(&g1_hashes_msg_to_sign.X.to_string()).unwrap(),
+            Fq::from_str(&g1_hashes_msg_to_sign.Y.to_string()).unwrap(),
         );
+        g1_affine
+            .serialize_uncompressed(&mut serialized_bytes)
+            .unwrap();
 
-        let g1_pubkey_bn254 = convert_to_bn254_g1_point(bls_key_pair.get_pub_key_g1());
-        let g2_projective = bls_key_pair
-            .get_pub_key_g2()
-            .expect("Failed to get g2 projective");
+        let signature = bls_key_pair.sign(&serialized_bytes).unwrap();
 
-        let g2_pubkey_bn254 = convert_to_bn254_g2_point(g2_projective);
+        let g1_pubkey_bn254:Option<G1Point> = bls_key_pair.clone().into();
+
+        let g2_pubkey_bn254 :Option<G2Point> = bls_key_pair.into();
 
         let pub_key_reg_params = PubkeyRegistrationParams {
-            pubkeyRegistrationSignature: signed_msg,
-            pubkeyG1: g1_pubkey_bn254,
-            pubkeyG2: g2_pubkey_bn254,
+            pubkeyRegistrationSignature: EthConvert::to_g1(signature).unwrap(),
+            pubkeyG1: g1_pubkey_bn254.expect("g1 is none"),
+            pubkeyG2: g2_pubkey_bn254.expect("g2 is none"),
         };
 
         let msg_to_sign = self

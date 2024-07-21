@@ -27,6 +27,9 @@ tracing.workspace = true
 alloy-network.workspace = true
 alloy-signer.workspace = true
 alloy-signer-local.workspace = true
+ark-serialize = "0.4.2"
+
+
 [lints]
 workspace = true
 

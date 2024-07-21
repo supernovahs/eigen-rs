@@ -23,7 +23,7 @@ pub type PublicKey = G1Affine;
 pub type BlsSignature = G1Affine;
 pub type OperatorId = H256;
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct BlsKeypair {
     pub private: PrivateKey,
     pub public: PublicKey,
@@ -44,7 +44,7 @@ impl From<BlsKeypair> for Option<G1Point> {
 
 impl From<BlsKeypair> for Option<G2Point> {
     fn from(val: BlsKeypair) -> Self {
-        let g2 = val.public_g2();
+        let g2 = BlsKeypair::public_g2(val.private);
         if let Some((x, y)) = g2.xy() {
             Some(G2Point {
                 X: [
@@ -63,8 +63,8 @@ impl From<BlsKeypair> for Option<G2Point> {
 }
 
 impl BlsKeypair {
-    pub fn public_g2(&self) -> G2Affine {
-        (G2Affine::generator() * self.private).into_affine()
+    pub fn public_g2(private: PrivateKey) -> G2Affine {
+        (G2Affine::generator() * private).into_affine()
     }
 
     pub fn operator_id(&self) -> OperatorId {

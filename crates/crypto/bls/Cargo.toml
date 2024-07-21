@@ -9,17 +9,19 @@ repository.workspace = true
 license-file.workspace = true
 
 [dependencies]
-ark-bn254 = "0.4.0"
-ark-ff.workspace = true
 eigen-crypto-bn254.workspace = true
 thiserror.workspace = true
-ark-ec = "0.4.2"
 alloy-primitives.workspace = true
 hex = "0.4.3"
 eigen-utils.workspace = true
 ethers = { version = "2.0", features = ["rustls", "ws"] }
 eyre = "0.6.8"
 num-bigint = "0.4.4"
+
+#ark
+ark-ec = "0.4.2"
+ark-bn254 = "0.4.0"
+ark-ff.workspace = true
 
 [dev-dependencies]
 rand = "0.8.4"
