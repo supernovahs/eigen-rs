@@ -135,7 +135,7 @@ impl AvsRegistryChainWriter {
             .await?;
         let RegistryCoordinator::pubkeyRegistrationMessageHashReturn {
             _0: g1_hashes_msg_to_sign,
-        } = g1_hashes_msg_to_sign_return;
+        } = g1_hashes_msg_to_sign_return_result;
       
         let mut serialized_bytes = vec![];
 
@@ -162,12 +162,7 @@ impl AvsRegistryChainWriter {
             pubkeyG2: g2_pubkey_bn254.expect("g2 is none"),
         };
 
-                let pub_key_reg_params = PubkeyRegistrationParams {
-                    pubkeyRegistrationSignature: signed_msg,
-                    pubkeyG1: g1_pubkey_bn254,
-                    pubkeyG2: g2_pubkey_bn254,
-                };
-
+        
                 let msg_to_sign_result = self
                     .el_reader
                     .calculate_operator_avs_registration_digest_hash(
