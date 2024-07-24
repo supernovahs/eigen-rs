@@ -8,12 +8,13 @@ pub mod attestation;
 
 pub mod error;
 
-use ark_bn254::{Fq, Fr, G1Affine, G2Affine};
-use ark_ec::{AffineRepr, CurveGroup};
+use ark_bn254::{Fq, Fr, G1Affine, G2Affine,Bn254};
+use ark_ec::{pairing::{Pairing,PairingOutput}, AffineRepr, CurveGroup};
 use ark_ff::{
     fields::{Field, PrimeField},
     BigInt, BigInteger, One,
 };
+// use rust_bls_bn254::pairing;
 use eigen_utils::binding::BLSApkRegistry::{G1Point, G2Point};
 use ethers::{core::types::H256, types::Address, utils::keccak256};
 use num_bigint::BigUint;
@@ -125,6 +126,23 @@ impl BlsKeypair {
                 x += Fq::one()
             }
         }
+    }
+
+    pub fn pairing(u: G2Affine, v: G1Affine) -> PairingOutput<Bn254> {
+        Bn254::pairing(v, u)
+    }
+
+
+    pub fn verify_g1_public(public_key: G1Affine, signature: G1Affine, message: G2Affine) -> bool {
+
+        if !signature.is_in_correct_subgroup_assuming_on_curve() || 
+        !signature.is_on_curve() {
+            return false;
+        }
+    
+        let c1 = Self::pairing( message, public_key);
+        let c2 = Self::pairing( G2Affine::generator(), signature);
+        c1 == c2
     }
 
     pub fn priv_key(&self) -> Fr {

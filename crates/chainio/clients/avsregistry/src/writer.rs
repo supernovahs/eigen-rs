@@ -152,6 +152,8 @@ impl AvsRegistryChainWriter {
 
         let signature = bls_key_pair.sign(&serialized_bytes).unwrap();
 
+        let verified = BlsKeypair::verify_g1_public(bls_key_pair.public,signature,g1_affine);
+
         let g1_pubkey_bn254:Option<G1Point> = bls_key_pair.clone().into();
 
         let g2_pubkey_bn254 :Option<G2Point> = bls_key_pair.into();

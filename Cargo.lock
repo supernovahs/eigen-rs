@@ -1431,6 +1431,7 @@ dependencies = [
  "hex",
  "num-bigint",
  "rand",
+ "rust-bls-bn254",
  "thiserror",
  "tokio",
 ]
@@ -3934,6 +3935,19 @@ name = "ruint-macro"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48fd7bd8a6377e15ad9d42a8ec25371b94ddc67abe7c8b9127bec79bebaaae18"
+
+[[package]]
+name = "rust-bls-bn254"
+version = "0.1.0"
+source = "git+ssh://git@github.com/Layr-Labs/rust-bls-bn254.git?rev=6470db8#6470db8ccf1e17c8c6485db5d84158d765a1472b"
+dependencies = [
+ "ark-bn254",
+ "ark-ec",
+ "ark-ff 0.4.2",
+ "ark-std 0.4.0",
+ "num-bigint",
+ "sha2",
+]
 
 [[package]]
 name = "rustc-demangle"
