@@ -1,14 +1,16 @@
-// use crate::error::BlsError;
-// use alloy_primitives::U256;
-// use ark_bn254::{Bn254, Fq, Fq2, Fr, G1Affine, G1Projective, G2Projective};
-// use ark_ec::{pairing::Pairing, CurveGroup};
-// use ark_ff::{BigInteger256, Field, One, PrimeField};
-// use eigen_crypto_bn254::utils::{
-//     get_g2_generator, mul_by_generator_g1, mul_by_generator_g2, u256_to_bigint256,
-// };
-// use hex::FromHex;
-// use std::fmt::Write;
-// use std::ops::{Add, Mul};
+use crate::error::BlsError;
+use alloy_primitives::U256;
+use ark_std::str::FromStr;
+use ark_bn254::{Bn254, Fq, Fq2, Fr, G1Affine,G2Affine};
+use ark_ec::{pairing::Pairing, CurveGroup};
+use ark_ff::{BigInteger256, Field, One, PrimeField,BigInt,Fp2};
+use eigen_crypto_bn254::utils::{
+    get_g2_generator, mul_by_generator_g1, mul_by_generator_g2, u256_to_bigint256,
+};
+use hex::FromHex;
+use std::fmt::Write;
+use std::ops::{Add, Mul};
+
 // pub fn new_fp_element(x: BigInteger256) -> Fq {
 //     Fq::from(x)
 // }
@@ -74,10 +76,51 @@
 //     }
 // }
 
-// #[derive(Debug, Default)]
-// pub struct KeyPair {
-//     priv_key: PrivateKey,
-//     pub_key: G1Projective,
+#[derive(Debug, Default)]
+pub struct KeyPair {
+    priv_key: Fr,
+    pub_key: G1Affine,
+}
+
+
+// pub struct G1Point {
+//     point: G1Affine,
+// }
+
+// impl G1Point {
+//     pub fn new_g1_point(x: [BigInt; 1], y: [BigInt; 1]) -> Self {
+//         let x0 = ark_ff::Fp256::<ark_bn254::Fr>::from_str(&x[0].to_str_radix(10)).unwrap();
+//         let y0 = ark_ff::Fp256::<ark_bn254::Fr>::from_str(&y[0].to_str_radix(10)).unwrap();
+
+//         let g1_affine = G1Affine::new(x0, y0);
+
+//         G1Point {
+//             point: g1_affine,
+//         }
+//     }
+// }
+
+// pub struct G2Point {
+//     point: G2Affine,
+// }
+
+// impl G2Point {
+//     pub fn new_g2_point(x: [BigInt; 2], y: [BigInt; 2]) -> Self {
+//         let x0 = Fp2::new(
+//             ark_ff::BigInteger256::from_str(&x[1].to_str_radix(10)).unwrap(),
+//             ark_ff::BigInteger256::from_str(&x[0].to_str_radix(10)).unwrap(),
+//         );
+//         let y0 = Fp2::new(
+//             ark_ff::BigInteger256::from_str(&y[1].to_str_radix(10)).unwrap(),
+//             ark_ff::BigInteger256::from_str(&y[0].to_str_radix(10)).unwrap(),
+//         );
+        
+//         let g2_affine = G2Affine::new(x0, y0);
+
+//         G2Point {
+//             point: g2_affine,
+//         }
+//     }
 // }
 
 // impl KeyPair {

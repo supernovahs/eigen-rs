@@ -18,7 +18,8 @@ eyre.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 ark-std = { version = "0.4.0", default-features = false }
 ark-ec = { version = "0.4.2", default-features = false }
-
+alloy-signer-local.workspace = true
+ark-serialize = "0.4"
 
 eigen-client-avsregistry.workspace = true
 eigen-client-elcontracts.workspace = true
