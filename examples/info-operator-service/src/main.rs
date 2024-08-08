@@ -4,6 +4,7 @@ use eigen_client_avsregistry::{
 };
 use eigen_services_operatorsinfo::operatorsinfo_inmemory::OperatorInfoServiceInMemory;
 use std::sync::Arc;
+use tokio::sync::watch;
 use tokio::sync::Mutex;
 use tokio::task;
 use tokio::time::{self, Duration};
@@ -21,23 +22,25 @@ async fn main() {
     )
     .await
     .expect("failed to build avs registry chain reader");
-    let avs_registry_subscriber = AvsRegistryChainSubscriber::new(WS_HOLESKY_PROIVIDER.to_string());
 
     let operators_info = Arc::new(Mutex::new(
         OperatorInfoServiceInMemory::new(
-            avs_registry_subscriber,
+            get_test_logger().clone(),
             avs_registry_chain_reader,
             WS_HOLESKY_PROIVIDER.to_string(),
         )
         .await,
     ));
+
     let operators_info_clone = Arc::clone(&operators_info);
+    let (shutdown_tx, shutdown_rx) = watch::channel(());
+
     // start the service with a particular block range
     // from block : 1536406
     // to block : 0 means current block , else normal
     task::spawn(async move {
         let operators_info = operators_info_clone.lock().await;
-        operators_info.start_service(1536406, 0).await
+        operators_info.start_service(1536406, 0, shutdown_rx).await
     });
 
     // Do whatever in this loop. We are getting the operator info , and re entering after 60 seconds

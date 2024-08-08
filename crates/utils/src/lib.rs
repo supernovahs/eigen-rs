@@ -5,12 +5,15 @@
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 
 pub mod binding;
+use alloy_json_rpc::RpcError;
 use alloy_network::{Ethereum, EthereumWallet};
 use alloy_provider::{
     fillers::{ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller},
-    ProviderBuilder, RootProvider,
+    ProviderBuilder, RootProvider, WsConnect,
 };
+use alloy_pubsub::PubSubFrontend;
 use alloy_signer_local::PrivateKeySigner;
+use alloy_transport::TransportErrorKind;
 use alloy_transport_http::{Client, Http};
 use reqwest::Url;
 use std::fs;
@@ -57,3 +60,15 @@ pub fn get_provider(
         .with_recommended_fillers()
         .on_http(url)
 }
+
+#[allow(clippy::type_complexity)]
+pub async fn get_ws_provider(
+    rpc_url: &str,
+) -> Result<RootProvider<PubSubFrontend>, RpcError<TransportErrorKind>> {
+    let ws = WsConnect::new(rpc_url);
+    ProviderBuilder::new().on_ws(ws).await
+}
+
+/// Emitted when a new pubkey is registered
+pub const NEW_PUBKEY_REGISTRATION_EVENT: &str =
+    "NewPubkeyRegistration(address,(uint256,uint256),(uint256[2],uint256[2]))";

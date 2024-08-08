@@ -6,7 +6,7 @@ use alloy_provider::{
     RootProvider,
 };
 use alloy_rpc_types::Filter;
-use eigen_utils::{binding::BLSApkRegistry, get_provider};
+use eigen_utils::{binding::BLSApkRegistry, get_provider, NEW_PUBKEY_REGISTRATION_EVENT};
 use reqwest::Client;
 
 /// AvsRegistry Chain Subscriber struct
@@ -52,7 +52,7 @@ impl AvsRegistryChainSubscriber {
         let current_block_number = provider.get_block_number().await?;
 
         let filter = Filter::new()
-            .event("NewPubkeyRegistration(address,(uint256,uint256),(uint256[2],uint256[2]))")
+            .event(NEW_PUBKEY_REGISTRATION_EVENT)
             .from_block(current_block_number);
         Ok(filter)
     }

@@ -2215,6 +2215,8 @@ dependencies = [
  "alloy-rpc-types",
  "anyhow",
  "eigen-client-avsregistry",
+ "eigen-logging",
+ "eigen-testing-utils",
  "eigen-types",
  "eigen-utils",
  "futures-util",
@@ -2272,10 +2274,13 @@ name = "eigen-utils"
 version = "0.0.1-alpha"
 dependencies = [
  "alloy-contract",
+ "alloy-json-rpc",
  "alloy-network",
  "alloy-provider",
+ "alloy-pubsub",
  "alloy-signer-local",
  "alloy-sol-types",
+ "alloy-transport",
  "alloy-transport-http",
  "reqwest 0.12.5",
 ]
@@ -2718,7 +2723,6 @@ dependencies = [
  "alloy-primitives",
  "alloy-provider",
  "ark-bn254",
- "ark-ff 0.4.2",
  "eigen-chainio-utils",
  "eigen-client-avsregistry",
  "eigen-client-elcontracts",

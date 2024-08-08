@@ -18,7 +18,11 @@ async fn main() -> Result<()> {
     let start_block = 1722400;
     let to_block = 1748590;
     let operators_state = avs_registry
-        .query_existing_registered_operator_pub_keys(start_block, to_block)
+        .query_existing_registered_operator_pub_keys(
+            start_block,
+            to_block,
+            holesky_provider.to_string(),
+        )
         .await
         .unwrap();
 

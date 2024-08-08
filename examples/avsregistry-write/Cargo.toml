@@ -14,17 +14,15 @@ workspace = true
 [dependencies]
 alloy-primitives.workspace = true
 alloy-provider.workspace = true
+ark-bn254 = "0.4.0"
 eyre.workspace = true
-tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
-
-
+eigen-chainio-utils.workspace = true
 eigen-client-avsregistry.workspace = true
 eigen-client-elcontracts.workspace = true
-eigen-testing-utils.workspace = true
 eigen-crypto-bls.workspace = true
 eigen-crypto-bn254.workspace = true
+eigen-testing-utils.workspace = true
 eigen-utils.workspace = true
-ark-bn254 = "0.4.0"
-ark-ff.workspace = true
-eigen-chainio-utils.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
 

@@ -9,12 +9,18 @@ repository.workspace = true
 license-file.workspace = true
 
 [dependencies]
-eigen-client-avsregistry.workspace = true
-eigen-types.workspace = true
 alloy-primitives.workspace = true
-alloy-provider= {workspace = true , features = ["ws"]}
+alloy-provider = { workspace = true, features = ["ws"] }
+alloy-rpc-types.workspace = true
+anyhow = "1.0.83"
+eigen-client-avsregistry.workspace = true
+eigen-logging.workspace = true
+eigen-types.workspace = true
+eigen-utils.workspace = true
 futures-util.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
-anyhow = "1.0.83"
-alloy-rpc-types.workspace = true
-eigen-utils.workspace = true
+
+
+[dev-dependencies]
+eigen-testing-utils.workspace = true
+eigen-logging.workspace = true

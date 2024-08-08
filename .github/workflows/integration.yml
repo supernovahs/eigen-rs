@@ -10,8 +10,11 @@ jobs:
   test:
     name: Run Integration Tests
     runs-on: ubuntu-latest
+    environment: testing
 
     env:
+      HOLESKY_WS_URL: ${{ secrets.HOLESKY_WS_URL }}
+      HOLESKY_HTTP_URL: ${{ secrets.HOLESKY_HTTP_URL }}
       FIREBLOCKS_API_KEY: ${{ secrets.FIREBLOCKS_API_KEY }}
       FIREBLOCKS_API_URL: ${{ secrets.FIREBLOCKS_API_URL }}
 
