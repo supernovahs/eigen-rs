@@ -11,10 +11,28 @@ alloy-json-rpc.workspace = true
 alloy-primitives.workspace = true
 alloy-provider.workspace = true
 alloy-transport.workspace = true
+ark-ec.workspace = true
+ark-ff.workspace = true
+ark-serialize.workspace = true
 clap.workspace = true
+eigen-crypto-bls.workspace = true
 eigen-testing-utils.workspace = true
+eigen-types.workspace = true
 eigen-utils.workspace = true
+eth-keystore.workspace = true
+hex.workspace = true
+k256.workspace = true
+num-bigint.workspace = true
+rand.workspace = true
+rand_core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
+uuid.workspace = true
+
+
+[dev-dependencies]
+eigen-testing-utils.workspace = true
+rstest.workspace = true
+tempfile.workspace = true
