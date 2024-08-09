@@ -1961,6 +1961,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "eigen-chainio-txmanager"
+version = "0.0.1-alpha"
+dependencies = [
+ "alloy-consensus",
+ "alloy-eips",
+ "alloy-network",
+ "alloy-node-bindings",
+ "alloy-primitives",
+ "alloy-provider",
+ "alloy-rpc-types-eth",
+ "alloy-signer-local",
+ "alloy-transport-http",
+ "eigen-logging",
+ "eigen-signer",
+ "k256",
+ "once_cell",
+ "reqwest 0.12.5",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "eigen-chainio-utils"
 version = "0.0.1-alpha"
 dependencies = [

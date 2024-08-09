@@ -1,0 +1,28 @@
+[package]
+name = "eigen-chainio-txmanager"
+description = "Eigen Layer Tx Manager"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+license-file.workspace = true
+
+[dependencies]
+alloy-eips.workspace = true
+alloy-network.workspace = true
+alloy-primitives.workspace = true
+alloy-provider.workspace = true
+alloy-rpc-types-eth.workspace = true
+alloy-signer-local.workspace = true
+alloy-transport-http.workspace = true
+eigen-logging.workspace = true
+eigen-signer.workspace = true
+k256.workspace = true
+reqwest.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+alloy-consensus.workspace = true
+alloy-node-bindings.workspace = true
+once_cell.workspace = true
+tokio.workspace = true
