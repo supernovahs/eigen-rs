@@ -1,5 +1,6 @@
 use alloy_contract::Error as AlloyError;
 use eigen_client_elcontracts::error::ElContractsError;
+use eigen_crypto_bls::error::BlsError;
 use thiserror::Error;
 
 /// Error returned by AvsRegistry
@@ -136,10 +137,20 @@ pub enum AvsRegistryError {
     /// ElContractsError compatibility
     #[error("ElContractsError: {0}")]
     ElContractsError(String),
+
+    /// BlsError compatibility
+    #[error("BlsError :{0}")]
+    BlsError(String),
 }
 
 impl From<ElContractsError> for AvsRegistryError {
     fn from(err: ElContractsError) -> Self {
         AvsRegistryError::ElContractsError(err.to_string())
+    }
+}
+
+impl From<BlsError> for AvsRegistryError {
+    fn from(err: BlsError) -> Self {
+        AvsRegistryError::BlsError(err.to_string())
     }
 }

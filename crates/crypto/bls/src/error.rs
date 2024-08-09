@@ -2,15 +2,15 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum BlsError {
-    /// Multiply private key to g2 projective
-    #[error("Failed to multiply by G2 Projective")]
-    MulByG2Projective,
+    /// Invalid Bls Private Key
+    #[error("Invalid bls private key   ")]
+    InvalidBlsPrivateKey,
 
-    /// Multiply private key to g1 projective
-    #[error("Failed to multiply by G1 Projective")]
-    MulByG1Projective,
+    /// Invalid G1Affine
+    #[error("Points missing in G1Affine")]
+    InvalidG1Affine,
 
-    /// Failed to generate keypair from private key string
-    #[error("Failed to generate keypair from String")]
-    KeyPairFromString,
+    /// Invalid G2Affine
+    #[error("Points missing in G2Affine")]
+    InvalidG2Affine,
 }

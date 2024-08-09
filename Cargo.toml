@@ -9,7 +9,6 @@ members = [
     "crates/crypto/bn254/",
     "crates/utils/",
     "crates/crypto/bls/",
-    "crates/crypto/keystore/",
     "crates/eigen-cli/",
     "crates/metrics/collectors/economic/",
     "crates/metrics/collectors/rpc_calls/",
@@ -63,7 +62,6 @@ eigen-client-fireblocks = { path = "crates/chainio/clients/fireblocks" }
 eigen-contract-bindings = { path = "crates/contracts/bindings/" }
 eigen-crypto-bls = { path = "crates/crypto/bls/" }
 eigen-crypto-bn254 = { path = "crates/crypto/bn254/" }
-eigen-crypto-keystore = { path = "crates/crypto/keystore/" }
 eigen-metrics = { version = "0.0.1-alpha", path = "crates/metrics/" }
 eigen-metrics-collectors-economic = { path = "crates/metrics/collectors/economic" }
 eigen-metrics-collectors-rpc-calls = { path = "crates/metrics/collectors/rpc_calls" }
@@ -94,14 +92,14 @@ reth = { git = "https://github.com/paradigmxyz/reth" }
 serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0.121"
 syn = "2.0"
-testcontainers = "0.20.1"
 thiserror = "1.0"
 tokio = { version = "1.37.0", features = ["test-util", "full", "sync"] }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3", features = ["json"] }
 url = "2.5.2"
-
-#misc
+testcontainers = "0.20.1"
+rust-bls-bn254 = {git = "https://github.com/Layr-Labs/rust-bls-bn254.git", rev = "2ebe5f4", features = ["std"] }
+#misc 
 parking_lot = "0.12"
 
 #alloy

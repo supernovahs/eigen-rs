@@ -4,181 +4,368 @@
 )]
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 
-pub mod attestation;
-
+use alloy_primitives::{B256, U256};
+use ark_std::str::FromStr;
+use num_bigint::BigUint;
+use sha2::{Digest, Sha256};
 pub mod error;
 
-use ark_bn254::{Fq, Fr, G1Affine, G2Affine};
+use crate::error::BlsError;
+use ark_bn254::{Fq, Fr, G1Affine, G1Projective, G2Affine, G2Projective};
 use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::{
     fields::{Field, PrimeField},
-    BigInt, BigInteger, One,
+    BigInt, BigInteger256, One,
 };
-use eigen_utils::binding::BLSApkRegistry::{G1Point, G2Point};
-use ethers::{core::types::H256, types::Address, utils::keccak256};
-use num_bigint::BigUint;
-
+use eigen_utils::binding::RegistryCoordinator::{self};
+use RegistryCoordinator::{G1Point, G2Point};
 pub type PrivateKey = Fr;
 pub type PublicKey = G1Affine;
 pub type BlsSignature = G1Affine;
-pub type OperatorId = H256;
+pub type OperatorId = B256;
 
-#[derive(Debug, Default)]
-pub struct BlsKeypair {
-    pub private: PrivateKey,
-    pub public: PublicKey,
+#[derive(Debug, Clone)]
+pub struct BlsG1Point {
+    g1: G1Affine,
 }
 
-impl From<BlsKeypair> for Option<G1Point> {
-    fn from(val: BlsKeypair) -> Self {
-        if let Some((x, y)) = val.public.xy() {
-            Some(G1Point {
-                X: alloy_primitives::U256::from_le_slice(&x.into_bigint().to_bytes_le()[..]),
-                Y: alloy_primitives::U256::from_le_slice(&y.into_bigint().to_bytes_le()[..]),
-            })
-        } else {
-            None
-        }
+impl BlsG1Point {
+    pub fn new(g1: G1Affine) -> Self {
+        Self { g1 }
+    }
+
+    pub fn g1(&self) -> G1Affine {
+        self.g1
     }
 }
 
-impl From<BlsKeypair> for Option<G2Point> {
-    fn from(val: BlsKeypair) -> Self {
-        let g2 = val.public_g2();
-        if let Some((x, y)) = g2.xy() {
-            Some(G2Point {
-                X: [
-                    alloy_primitives::U256::from_le_slice(&x.c0.into_bigint().to_bytes_le()[..]),
-                    alloy_primitives::U256::from_le_slice(&x.c1.into_bigint().to_bytes_le()[..]),
-                ],
-                Y: [
-                    alloy_primitives::U256::from_le_slice(&y.c0.into_bigint().to_bytes_le()[..]),
-                    alloy_primitives::U256::from_le_slice(&y.c1.into_bigint().to_bytes_le()[..]),
-                ],
-            })
-        } else {
-            None
-        }
+#[derive(Debug, Clone)]
+pub struct BlsG2Point {
+    g2: G2Affine,
+}
+
+impl BlsG2Point {
+    pub fn new(g2: G2Affine) -> Self {
+        Self { g2 }
+    }
+
+    pub fn g2(&self) -> G2Affine {
+        self.g2
     }
 }
 
-impl BlsKeypair {
-    pub fn public_g2(&self) -> G2Affine {
-        (G2Affine::generator() * self.private).into_affine()
-    }
+/// Bls key pair with public key on G1
+pub struct BlsKeyPair {
+    /// Private Key
+    priv_key: Fr,
+    /// Public Key on G1
+    pub_key: BlsG1Point,
+}
 
-    pub fn operator_id(&self) -> OperatorId {
-        let xy = self.public.xy().expect("should have public");
-        keccak256(
-            [
-                xy.0.into_bigint().to_bytes_be(),
-                xy.1.into_bigint().to_bytes_be(),
-            ]
-            .concat(),
-        )
-        .into()
-    }
-
-    pub fn make_pubkey_registration_data(
-        &self,
-        operator_addr: Address,
-        bls_pubkey_comp_addr: Address,
-        chain_id: u64,
-    ) -> eyre::Result<BlsSignature> {
-        let bytes = [
-            operator_addr.as_bytes(),
-            bls_pubkey_comp_addr.as_bytes(),
-            &[0_u8; 24],
-            &chain_id.to_be_bytes(),
-            b"EigenLayer_BN254_Pubkey_Registration",
-        ]
-        .concat();
-        let hash: H256 = keccak256(&bytes).into();
-        self.sign(hash.as_bytes())
-    }
-
-    pub fn sign(&self, msg: &[u8]) -> eyre::Result<BlsSignature> {
-        let h = Self::map_to_curve(msg)?;
-        let sig = h * self.private;
-
-        Ok(sig.into_affine())
-    }
-
-    pub fn sign_hashed(&self, msg: G1Affine) -> eyre::Result<BlsSignature> {
-        let sig = msg * self.private;
-
-        Ok(sig.into_affine())
-    }
-    /// implements BN254 map to curve from
-    /// contracts/lib/eigenlayer-middleware/lib/eigenlayer-contracts/src/contracts/libraries/BN254.sol
-    /// for a hash, maps to a point on curve
-    /// y^2 = x^3 + b
-    fn map_to_curve(hash: &[u8]) -> eyre::Result<PublicKey> {
-        let mut x: Fq = Fq::from_be_bytes_mod_order(hash);
-        let b = BigInt::<4>::from(3_u32);
-
-        loop {
-            let beta = x.pow(b) + Fq::from(3_u32);
-            if let Some(y) = beta.sqrt() {
-                return Ok(PublicKey::new(x, y));
-            } else {
-                x += Fq::one()
+impl BlsKeyPair {
+    /// Input [`Fr`] as a [`String`]
+    pub fn new(fr: String) -> Result<Self, BlsError> {
+        let sk_result = Fr::from_str(&fr);
+        match sk_result {
+            Ok(sk) => {
+                let pk = G1Projective::from(G1Affine::generator()) * sk;
+                Ok(Self {
+                    priv_key: sk,
+                    pub_key: BlsG1Point::new(pk.into_affine()),
+                })
             }
+            Err(_) => Err(BlsError::InvalidBlsPrivateKey),
         }
     }
 
-    pub fn priv_key(&self) -> Fr {
-        self.private
+    /// Get public key on G1
+    pub fn public_key(&self) -> BlsG1Point {
+        self.pub_key.clone()
+    }
+
+    pub fn sign_hashed_to_curve_message(&self, g1_hashed_msg: G1Affine) -> Signature {
+        let sk_int: BigInteger256 = self.priv_key.into();
+        let r = g1_hashed_msg.mul_bigint(sk_int);
+        Signature::new(r.into_affine())
+    }
+
+    /// TODO(supernova): Wait for hash_to_curve to be tested in
+    /// https://github.com/Layr-Labs/rust-bls-bn254/blob/main/src/lib.rs
+    // pub fn sign_message(&self, message: &[u8]) -> Signature {
+    //     let g1 = hash_to_curve(message);
+    //     println!("hash to curve {:?}", g1);
+    //     let sk_int: BigInteger256 = self.priv_key.into();
+    //     let r = g1.mul_bigint(sk_int);
+    //     Signature::new(r.into_affine())
+    // }
+
+    /// Get public key on G2
+    pub fn public_key_g2(&self) -> BlsG2Point {
+        let pk = G2Projective::from(G2Affine::generator()) * self.priv_key;
+        BlsG2Point::new(pk.into_affine())
     }
 }
 
-pub struct EthConvert;
-impl EthConvert {
-    pub fn to_u256(p: &Fq) -> alloy_primitives::U256 {
-        alloy_primitives::U256::from_le_slice(&p.into_bigint().to_bytes_le()[..])
-    }
+/// Convert [`G1Point`] to [`G1Affine`]
+pub fn alloy_g1_point_to_g1_affine(g1_point: G1Point) -> G1Affine {
+    let x_point = g1_point.X.into_limbs();
+    let x = Fq::new(BigInteger256::new(x_point));
+    let y_point = g1_point.Y.into_limbs();
+    let y = Fq::new(BigInteger256::new(y_point));
+    G1Affine::new(x, y)
+}
 
-    pub fn to_g1(xy: G1Affine) -> Option<G1Point> {
-        xy.xy().map(|(x, y)| G1Point {
-            X: EthConvert::to_u256(x),
-            Y: EthConvert::to_u256(y),
+/// Convert [`G1Affine`] to  Alloy [`G1Point`]
+pub fn convert_to_g1_point(g1: G1Affine) -> Result<G1Point, BlsError> {
+    let x_point_result = g1.x();
+    let y_point_result = g1.y();
+
+    if let (Some(x_point), Some(y_point)) = (x_point_result, y_point_result) {
+        let x = BigInt::new(x_point.into_bigint().0);
+        let y = BigInt::new(y_point.into_bigint().0);
+
+        let x_u256 = U256::from_limbs(x.0);
+        let y_u256 = U256::from_limbs(y.0);
+
+        Ok(G1Point {
+            X: x_u256,
+            Y: y_u256,
         })
+    } else {
+        Err(BlsError::InvalidG1Affine)
     }
+}
 
-    pub fn to_g2(xy: G2Affine) -> Option<G2Point> {
-        xy.xy().map(|(x, y)| G2Point {
-            X: [EthConvert::to_u256(&x.c1), EthConvert::to_u256(&x.c0)],
-            Y: [EthConvert::to_u256(&y.c1), EthConvert::to_u256(&y.c0)],
+/// Convert [`G2Affine`] to [`G2Point`]
+pub fn convert_to_g2_point(g2: G2Affine) -> Result<G2Point, BlsError> {
+    let x_point_result = g2.x();
+    // let x_point_c1 = g2.x().unwrap().c1;
+
+    let y_point_result = g2.y();
+    // let y_point_c1 = g2.y().unwrap().c1;
+
+    if let (Some(x_point), Some(y_point)) = (x_point_result, y_point_result) {
+        let x_point_c0 = x_point.c0;
+        let x_point_c1 = x_point.c1;
+        let y_point_c0 = y_point.c0;
+        let y_point_c1 = y_point.c1;
+
+        let x_0 = BigInt::new(x_point_c0.into_bigint().0);
+        let x_1 = BigInt::new(x_point_c1.into_bigint().0);
+        let y_0 = BigInt::new(y_point_c0.into_bigint().0);
+        let y_1 = BigInt::new(y_point_c1.into_bigint().0);
+
+        let x_u256_0 = U256::from_limbs(x_0.0);
+        let x_u256_1 = U256::from_limbs(x_1.0);
+        let y_u256_0 = U256::from_limbs(y_0.0);
+        let y_u256_1 = U256::from_limbs(y_1.0);
+
+        Ok(G2Point {
+            X: [x_u256_1, x_u256_0],
+            Y: [y_u256_1, y_u256_0],
         })
+    } else {
+        Err(BlsError::InvalidG2Affine)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Signature {
+    g1_point: BlsG1Point,
+}
+
+impl Signature {
+    pub fn new(g1: G1Affine) -> Self {
+        Self {
+            g1_point: BlsG1Point::new(g1),
+        }
     }
 
-    pub fn from_g1(xy: G1Point) -> G1Affine {
-        let x = BigUint::from_bytes_le(&xy.X.to_le_bytes::<32>()[..]);
-        let y = BigUint::from_bytes_le(&xy.Y.to_le_bytes::<32>()[..]);
-        G1Affine::new(x.into(), y.into())
+    pub fn g1_point(&self) -> BlsG1Point {
+        self.g1_point.clone()
+    }
+}
+
+/// https://github.com/Layr-Labs/rust-bls-bn254/blob/main/src/lib.rs
+pub fn hash_to_curve(digest: &[u8]) -> G1Affine {
+    let one = Fq::one();
+    let three = Fq::from(3u64);
+
+    let mut hasher = Sha256::new();
+    hasher.update(digest);
+    let hashed_result = hasher.finalize();
+
+    // Convert digest to a big integer and then to a field element
+    let mut x = {
+        let big_int = BigUint::from_bytes_be(&hashed_result);
+        let mut bytes = [0u8; 32];
+        big_int
+            .to_bytes_be()
+            .iter()
+            .rev()
+            .enumerate()
+            .for_each(|(i, &b)| bytes[i] = b);
+        Fq::from_le_bytes_mod_order(&bytes)
+    };
+
+    loop {
+        // y = x^3 + 3
+        let mut y = x;
+        y.square_in_place();
+        y *= x;
+        y += three;
+
+        // Check if y is a quadratic residue (i.e., has a square root in the field)
+        if let Some(y) = y.sqrt() {
+            return G1Projective::new(x, y, Fq::one()).into_affine();
+        } else {
+            // x = x + 1
+            x += one;
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{BlsKeypair, PublicKey};
-    use ark_bn254::Fq;
+
+    use ark_bn254::Fq2;
+
+    use super::*;
 
     #[test]
-    fn test_map_parity() {
-        use std::str::FromStr;
-        // taken from golang impl
-        let x = Fq::from_str(
-            "21808877952123445795107598745041753552237365029343566086488416315631580963384",
+    fn test_convert_to_g1_point() {
+        let x_point = Fq::from_str(
+            "17709620697113958145616918533531128159269167719799793368595970620022661612059",
         )
         .unwrap();
-        let y = Fq::from_str(
-            "11638128931416599220980524115187668264422283409187640152391635080130668110949",
+        let y_point = Fq::from_str(
+            "9890439522434691655532127414660267222813910180198976870423582442696952349816",
         )
         .unwrap();
-        let expected = PublicKey::new(x, y);
-        let msg = b"07c2ee97b7ae54ffe597b9db97ede3b7";
-        let r = BlsKeypair::map_to_curve(msg).unwrap();
-        assert_eq!(r, expected);
+        let g1_affine = G1Affine::new(x_point, y_point);
+
+        let alloy_g1_point = convert_to_g1_point(g1_affine).unwrap();
+        assert_eq!(
+            alloy_g1_point.X,
+            U256::from_str(
+                "17709620697113958145616918533531128159269167719799793368595970620022661612059"
+            )
+            .unwrap()
+        );
+        assert_eq!(
+            alloy_g1_point.Y,
+            U256::from_str(
+                "9890439522434691655532127414660267222813910180198976870423582442696952349816"
+            )
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_alloy_g1_point_to_g1_affine() {
+        let alloy_g1_point = G1Point {
+            X: U256::from_str(
+                "17709620697113958145616918533531128159269167719799793368595970620022661612059",
+            )
+            .unwrap(),
+            Y: U256::from_str(
+                "9890439522434691655532127414660267222813910180198976870423582442696952349816",
+            )
+            .unwrap(),
+        };
+
+        let g1_affine = alloy_g1_point_to_g1_affine(alloy_g1_point);
+        assert_eq!(
+            U256::from_limbs(g1_affine.x().unwrap().into_bigint().0),
+            U256::from_str(
+                "17709620697113958145616918533531128159269167719799793368595970620022661612059"
+            )
+            .unwrap()
+        );
+        assert_eq!(
+            U256::from_limbs(g1_affine.y().unwrap().into_bigint().0),
+            U256::from_str(
+                "9890439522434691655532127414660267222813910180198976870423582442696952349816"
+            )
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_convert_to_g2_point() {
+        let x_point_c0 = Fq::from_str(
+            "6834287759893774453556191528501556195232162436167606874229072410417955767882",
+        )
+        .unwrap();
+        let x_point_c1 = Fq::from_str(
+            "15529400123788596166111036611862227541174221446291015207340396747864347375335",
+        )
+        .unwrap();
+
+        let y_point_c0 = Fq::from_str(
+            "7616309349481520605447660298084926776417001188005125143383153219707218450524",
+        )
+        .unwrap();
+        let y_point_c1 = Fq::from_str(
+            "19775028091101520702581412350510183088819198056772055625089714355379667714558",
+        )
+        .unwrap();
+
+        let x_point = Fq2::new(x_point_c0, x_point_c1);
+        let y_point = Fq2::new(y_point_c0, y_point_c1);
+
+        let g2_affine = G2Affine::new(x_point, y_point);
+
+        let alloy_g2_point = convert_to_g2_point(g2_affine).unwrap();
+        assert_eq!(
+            alloy_g2_point.X[0],
+            U256::from_str(
+                "15529400123788596166111036611862227541174221446291015207340396747864347375335"
+            )
+            .unwrap()
+        );
+        assert_eq!(
+            alloy_g2_point.X[1],
+            U256::from_str(
+                "6834287759893774453556191528501556195232162436167606874229072410417955767882"
+            )
+            .unwrap()
+        );
+        assert_eq!(
+            alloy_g2_point.Y[0],
+            U256::from_str(
+                "19775028091101520702581412350510183088819198056772055625089714355379667714558"
+            )
+            .unwrap()
+        );
+        assert_eq!(
+            alloy_g2_point.Y[1],
+            U256::from_str(
+                "7616309349481520605447660298084926776417001188005125143383153219707218450524"
+            )
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_bls_key_pair() {
+        let bls_priv_key =
+            "12248929636257230549931416853095037629726205319386239410403476017439825112537";
+        let bls_key_pair = BlsKeyPair::new(bls_priv_key.to_string()).unwrap();
+
+        assert_eq!(
+            U256::from_limbs(bls_key_pair.public_key().g1().x().unwrap().into_bigint().0),
+            U256::from_str(
+                "277950648056014144722774518899051149098728246263316284984520891067822832300"
+            )
+            .unwrap()
+        );
+        assert_eq!(
+            U256::from_limbs(bls_key_pair.public_key().g1().y().unwrap().into_bigint().0),
+            U256::from_str(
+                "16927236637669640540790285431111034664564710839671197540688155537113438534238"
+            )
+            .unwrap()
+        );
     }
 }

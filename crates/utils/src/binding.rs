@@ -13,6 +13,7 @@ sol!(
     #[allow(clippy::too_many_arguments)]
     #[allow(missing_docs)]
     #[sol(rpc)]
+    #[derive(Debug)]
     RegistryCoordinator,
     "../../crates/contracts/bindings/utils/json/RegistryCoordinator.json"
 );

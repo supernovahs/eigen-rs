@@ -19,7 +19,6 @@ eigen-types.workspace = true
 eigen-crypto-bls.workspace = true
 ark-ff.workspace = true
 eigen-client-elcontracts.workspace = true
-eigen-chainio-utils.workspace = true
 eigen-utils.workspace = true
 eigen-logging.workspace = true
 ark-bn254 = "0.4.0"

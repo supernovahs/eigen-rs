@@ -1,5 +1,5 @@
 use alloy_primitives::FixedBytes;
-use eigen_crypto_bls::attestation::Signature;
+use eigen_crypto_bls::Signature;
 
 pub type TaskIndex = u32;
 

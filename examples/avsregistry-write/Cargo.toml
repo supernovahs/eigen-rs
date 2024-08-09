@@ -16,7 +16,10 @@ alloy-primitives.workspace = true
 alloy-provider.workspace = true
 eyre.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
-
+ark-std = { version = "0.4.0", default-features = false }
+ark-ec = { version = "0.4.2", default-features = false }
+ark-serialize = "0.4"
+alloy-signer-local.workspace = true
 
 eigen-client-avsregistry.workspace = true
 eigen-client-elcontracts.workspace = true
@@ -27,4 +30,5 @@ eigen-utils.workspace = true
 ark-bn254 = "0.4.0"
 ark-ff.workspace = true
 eigen-chainio-utils.workspace = true
-
+eigen-types.workspace = true
+eigen-logging.workspace = true
