@@ -4,4 +4,4 @@
 )]
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 pub mod client;
-mod instrumented_client;
+pub mod instrumented_client;

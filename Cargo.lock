@@ -2040,6 +2040,24 @@ dependencies = [
 [[package]]
 name = "eigen-client-eth"
 version = "0.0.1-alpha"
+dependencies = [
+ "alloy-consensus",
+ "alloy-json-rpc",
+ "alloy-node-bindings",
+ "alloy-primitives",
+ "alloy-provider",
+ "alloy-rpc-types-eth",
+ "alloy-transport",
+ "alloy-transport-http",
+ "async-trait",
+ "eigen-logging",
+ "eigen-metrics-collectors-rpc-calls",
+ "once_cell",
+ "serde",
+ "thiserror",
+ "tokio",
+ "url",
+]
 
 [[package]]
 name = "eigen-client-fireblocks"

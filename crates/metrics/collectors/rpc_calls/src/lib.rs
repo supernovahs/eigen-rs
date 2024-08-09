@@ -102,4 +102,8 @@ impl RpcCallsMetrics {
             &["eigen-metrics-collectors-rpc-calls.set_rpc_request_total"],
         )
     }
+
+    pub fn logger(&self) -> &TracingLogger {
+        &self.logger
+    }
 }
