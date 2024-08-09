@@ -105,7 +105,7 @@ impl ContractAddresses {
     /// # Returns
     ///
     /// * `(Address, Address)` - The registry coordinator and service manager contract addresses,
-    /// used to call `get_avs_contract_addresses` and `get_eigenlayer_contract_addresses` functions.
+    ///   used to call `get_avs_contract_addresses` and `get_eigenlayer_contract_addresses` functions.
     async fn get_registry_coord_and_service_manager_addr<T, P, N>(
         registry_coordinator: Option<Address>,
         service_manager: Option<Address>,

@@ -2,14 +2,38 @@
     html_logo_url = "https://github.com/Layr-Labs/eigensdk-rs/assets/91280922/bd13caec-3c00-4afc-839a-b83d2890beb5",
     issue_tracker_base_url = "https://github.com/Layr-Labs/eigensdk-rs/issues/"
 )]
+pub mod bls;
+pub mod args;
+mod convert;
+pub mod eigen_address;
+mod generate;
+mod operator_id;
+use bls::BlsKeystore;
+use eth_keystore::KeystoreError;
+use tokio::runtime::Runtime;
+use crate::eigen_address::ContractAddresses;
+use rust_bls_bn254::errors::KeystoreError as BlsKeystoreError;
 use alloy_contract::Error as ContractError;
 use alloy_json_rpc::RpcError;
 use alloy_transport::TransportErrorKind;
+use args::{Commands, EigenKeyCommand};
+use ark_serialize::SerializationError;
+use convert::store;
+use eigen_crypto_bls::error::BlsError;
+use generate::KeyGenerator;
+use operator_id::derive_operator_id;
 use thiserror::Error;
-pub mod args;
-pub mod eigen_address;
 
 pub const ANVIL_RPC_URL: &str = "http://localhost:8545";
+
+/// Possible errors raised while executing a CLI command
+#[derive(Error, Debug)]
+pub enum EigenCliError {
+    #[error("address error")]
+    EigenAddressCliError(EigenAddressCliError),
+    #[error("key error")]
+    EigenKeyCliError(EigenKeyCliError),
+}
 
 /// Possible errors raised while trying to get contract addresses
 #[derive(Error, Debug)]
@@ -20,14 +44,204 @@ pub enum EigenAddressCliError {
     RpcError(RpcError<TransportErrorKind>),
 }
 
+/// Possible errors raised while executing egnkey commands
+#[derive(Error, Debug)]
+pub enum EigenKeyCliError {
+    #[error("file error")]
+    FileError(std::io::Error),
+    #[error("keystore error")]
+    KeystoreError(KeystoreError),
+    #[error("BLS error")]
+    BLSError(BlsError),
+    #[error("serialization error")]
+    SerializationError(SerializationError),
+    #[error("Bls Keystore error")]
+    EigenBlsKeyStoreError(EigenBlsKeyStoreError),
+}
+
+impl From<EigenBlsKeyStoreError> for EigenKeyCliError {
+    fn from(e: EigenBlsKeyStoreError) -> EigenKeyCliError {
+        EigenKeyCliError::EigenBlsKeyStoreError(e)
+    }
+}
+
+/// BlsKeyStore errors
+#[derive(Error, Debug)]
+pub enum EigenBlsKeyStoreError {
+    #[error("Invalid secret key : Failed to decode key to hex {0} ")]
+    InvalidSecretKeyFromHexError(String),
+
+    #[error("KeyStore Error : {0}")]
+    BlsKeystoreError(String),
+}
+
+impl From<BlsKeystoreError> for EigenBlsKeyStoreError {
+    fn from(e: BlsKeystoreError) -> EigenBlsKeyStoreError {
+        EigenBlsKeyStoreError::BlsKeystoreError(e.to_string())
+    }
+}
+
+impl From<hex::FromHexError> for EigenBlsKeyStoreError {
+    fn from(e: hex::FromHexError) -> EigenBlsKeyStoreError {
+        EigenBlsKeyStoreError::InvalidSecretKeyFromHexError(e.to_string())
+    }
+}
+
+/// Executes an `egnkey` subcommand.
+///
+/// # Arguments
+///
+/// * `subcommand` - An egnkey subcommand which can be `generate`, `convert` or `derive-operator-id`.
+///
+/// # Errors
+///
+/// - If the subcommand execution fails (`EigenKeyCliError`).
+pub fn execute_egnkey_subcommand(subcommand: EigenKeyCommand) -> Result<(), EigenKeyCliError> {
+    match subcommand {
+        EigenKeyCommand::Generate {
+            key_type,
+            num_keys,
+            output_dir,
+        } => KeyGenerator::from(key_type).generate(num_keys, output_dir),
+
+        EigenKeyCommand::ConvertECDSA {
+            private_key,
+            output_file,
+            password,
+        } => store(private_key.into(), output_file, password)
+            .map_err(EigenKeyCliError::KeystoreError),
+
+        EigenKeyCommand::DeriveOperatorId { private_key } => {
+            let operator_id =
+                derive_operator_id(private_key).map_err(EigenKeyCliError::BLSError)?;
+            println!("{}", operator_id);
+            Ok(())
+        }
+
+        EigenKeyCommand::BlsConvert {
+            key_type,
+            secret_key,
+            output_path,
+            password,
+        } => {
+            BlsKeystore::from(key_type).new_keystore(
+                secret_key,
+                output_path,
+                password.as_deref(),
+            )?;
+            Ok(())
+        }
+    }
+}
+
+/// Executes a CLI command.
+///
+/// # Arguments
+///
+/// * `command` - A CLI command which can be `Commands::EigenAddress` or `Commands::EigenKey`
+///
+/// # Errors
+///
+/// - If the command execution fails (`EigenCliError`).
+pub fn execute_command(command: Commands) -> Result<(), EigenCliError> {
+    match command {
+        Commands::EigenAddress {
+            service_manager,
+            registry_coordinator,
+            rpc_url,
+        } => {
+            let rt = Runtime::new().unwrap();
+            let addresses = rt.block_on(async {
+                ContractAddresses::get_addresses(service_manager, registry_coordinator, rpc_url)
+                    .await
+                    .map_err(EigenCliError::EigenAddressCliError)
+            })?;
+            println!("{}", serde_json::to_string_pretty(&addresses).unwrap());
+            Ok(())
+        }
+        Commands::EigenKey { subcommand } => {
+            execute_egnkey_subcommand(subcommand).map_err(EigenCliError::EigenKeyCliError)?;
+            Ok(())
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::ANVIL_RPC_URL;
+    use crate::args::{BlsKeystoreType, EigenKeyCommand};
+    use crate::convert::store;
     use crate::eigen_address::ContractAddresses;
+    use crate::{
+        args::{Commands, KeyType},
+        execute_command,
+        generate::{KeyGenerator, DEFAULT_KEY_FOLDER, PASSWORD_FILE, PRIVATE_KEY_HEX_FILE},
+        operator_id::derive_operator_id,
+    };
     use eigen_testing_utils::anvil_constants::{
         get_registry_coordinator_address, get_service_manager_address,
     };
-    use tokio;
+    use eth_keystore::decrypt_key;
+    use k256::SecretKey;
+    use rstest::rstest;
+    use rust_bls_bn254::keystores::base_keystore::Keystore;
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[rstest]
+    #[case(BlsKeystoreType::Scrypt)]
+    #[case(BlsKeystoreType::Pbkdf2)]
+    fn blskeystore_generation(#[case] keystore_type: BlsKeystoreType) {
+        let subcommand = EigenKeyCommand::BlsConvert {
+            key_type: keystore_type,
+            secret_key: "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
+                .to_string(),
+            output_path: "./keystore.json".to_string(),
+            password: Some("testpassword".to_string()),
+        };
+
+        let command = Commands::EigenKey { subcommand };
+
+        execute_command(command).unwrap();
+
+        std::process::Command::new("chmod")
+            .arg("u+w") // Add write permission for the user (owner)
+            .arg("./keystore.json")
+            .status()
+            .expect("Failed to change file permissions");
+
+        let keystore_instance = Keystore::from_file("./keystore.json").unwrap();
+        let decrypted_key = keystore_instance.decrypt("testpassword").unwrap();
+        let original_secret_key =
+            hex::decode("000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f")
+                .unwrap();
+        assert_eq!(original_secret_key.as_slice(), decrypted_key);
+        std::fs::remove_file("./keystore.json").unwrap();
+    }
+
+    #[test]
+    fn egnkey_derive_operator_id() {
+        let private_key =
+            "1e4fa82657771dc209c466a0c2f696b39320a0284bf725cf1740971fe7e2d3cf".to_string();
+        let operator_id = derive_operator_id(private_key).unwrap();
+        let expected_operator_id =
+            "48beccce16ccdf8000c13d5af5f91c7c3dac6c47b339d993d229af1500dbe4a9".to_string();
+        assert_eq!(expected_operator_id, operator_id);
+    }
+
+    #[test]
+    fn convert() {
+        let private_key = KeyGenerator::random_ecdsa_key();
+        let password = KeyGenerator::generate_random_password();
+        let file = "key.json".to_string();
+        let path = "./key.json".to_string();
+
+        store(private_key.clone(), Some(file), Some(password.clone())).unwrap();
+        let decrypted_key = decrypt_key(path.clone(), password).unwrap();
+        std::fs::remove_file(path).unwrap();
+
+        assert_eq!(private_key, decrypted_key);
+    }
 
     #[tokio::test]
     async fn egnaddrs_with_service_manager_flag() {
@@ -100,5 +314,38 @@ mod test {
         .unwrap();
 
         assert_eq!(expected_addresses, addresses);
+    }
+
+    #[rstest]
+    #[case(KeyType::Ecdsa)]
+    #[case(KeyType::Bls)]
+    fn generate_key(#[case] key_type: KeyType) {
+        let output_dir = tempdir().unwrap();
+        let output_path = output_dir.path();
+        let subcommand = EigenKeyCommand::Generate {
+            key_type: key_type.clone(),
+            num_keys: 1,
+            output_dir: output_path.to_str().map(String::from),
+        };
+        let command = Commands::EigenKey { subcommand };
+
+        execute_command(command).unwrap();
+
+        let private_key_hex = fs::read_to_string(output_path.join(PRIVATE_KEY_HEX_FILE)).unwrap();
+        let password = fs::read_to_string(output_path.join(PASSWORD_FILE)).unwrap();
+        let key_name = match key_type {
+            KeyType::Ecdsa => "ecdsa",
+            KeyType::Bls => "bls",
+        };
+        let key_path = output_path
+            .join(DEFAULT_KEY_FOLDER)
+            .join(format!("1.{}.key.json", key_name));
+
+        let decrypted_bytes = decrypt_key(key_path, password).unwrap();
+        let decrypted_private_key = SecretKey::from_slice(&decrypted_bytes).unwrap().to_bytes();
+
+        let private_key = hex::decode(private_key_hex).unwrap();
+
+        assert_eq!(private_key, decrypted_private_key.as_slice());
     }
 }
